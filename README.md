@@ -92,4 +92,21 @@ chmod +x build.sh
 - Большинство оптимизаций работают **только на Windows** (powercfg, reg, sc, wmic)
 - На Linux/macOS приложение запускается, показывает характеристики, но оптимизации пропускаются
 - Для полной функциональности запускайте от имени администратора
+
+
+# ВАЖНО
+**При появлении фризов в игре**
+
+<img width="486" height="148" alt="image" src="https://github.com/user-attachments/assets/680d2e36-4313-456b-813e-b1c0a2b77f5f" />
+
+В диспетчере задач поставить обычный приоритет для stalzone.exe
+
+
+Так же стоит отключить при фризах следующие параметры: 
+
+<img width="484" height="145" alt="image" src="https://github.com/user-attachments/assets/3fc0fa97-931b-4738-8e68-2ed8086b4aa7" />
+<img width="602" height="45" alt="image" src="https://github.com/user-attachments/assets/df0592e6-4aa1-4ecd-906e-9f3ccedb2b41" />
+
+
+
   
