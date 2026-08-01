@@ -58,25 +58,6 @@ chmod +x build.sh
 
 Результат: `dist/stalzone optimizer`
 
-## Структура проекта
-
-```
-stalzone-optimizer/
-├── main.py                    # GUI на CustomTkinter (точка входа)
-├── requirements.txt           # Зависимости
-├── build.bat                  # Сборка .exe для Windows
-├── build.sh                   # Сборка для Linux/macOS
-├── README.md
-└── src/
-    ├── __init__.py
-    ├── models.py              # Типы данных (dataclasses)
-    ├── theme.py               # Цвета, шрифты, константы
-    ├── hardware.py            # Детектор железа (psutil + WMI)
-    ├── analyzer.py            # Оценка тира + каталог оптимизаций
-    ├── optimizations.py       # Применение/откат оптимизаций
-    └── script_generator.py    # Генерация автономного скрипта
-```
-
 ## Использование
 
 ### Вкладка «Обзор»
