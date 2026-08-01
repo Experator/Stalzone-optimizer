@@ -107,6 +107,10 @@ chmod +x build.sh
 <img width="484" height="145" alt="image" src="https://github.com/user-attachments/assets/3fc0fa97-931b-4738-8e68-2ed8086b4aa7" />
 <img width="602" height="45" alt="image" src="https://github.com/user-attachments/assets/df0592e6-4aa1-4ecd-906e-9f3ccedb2b41" />
 
+Так же рекомендуется поставить параметр CPU Affinity -> все логические ядра
+
+<img width="410" height="47" alt="image" src="https://github.com/user-attachments/assets/71f7713b-d9c3-4839-a19f-52a6ad05a864" />
+
 
 
   
