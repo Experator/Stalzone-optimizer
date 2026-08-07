@@ -30,6 +30,11 @@
 - **Python:** 3.10+ (для запуска из исходников)
 - **Права:** Администратор (для большинства оптимизаций)
 
+## Запуск из релиза
+- Перейти в вкладку релизов https://github.com/Experator/Stalzone-optimizer/releases
+- Скачать актуальную версию программы - stalzone.optimizer.zip
+<img width="917" height="437" alt="image" src="https://github.com/user-attachments/assets/fa9d95f3-95c9-47f8-991c-49e8a81e4c84" />
+
 ## Запуск из исходников
 
 ```bash
