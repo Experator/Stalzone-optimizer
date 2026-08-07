@@ -1,10 +1,10 @@
 class Colors:
     # Base
-    BG_DARKEST = "#0a0a0b"       
-    BG_DARK = "#161618"          
-    BG_PANEL = "#1c1c1f"         
-    BG_PANEL_LIGHT = "#242428"   
-    BG_INPUT = "#0d0d0f"         
+    BG_DARKEST = "#ffffff"       
+    BG_DARK = "#1a1d4e"          
+    BG_PANEL = "#131233"         
+    BG_PANEL_LIGHT = "#17163B"   
+    BG_INPUT = "#ff0800"         
 
     # Borders
     BORDER = "#2a2a2e"
@@ -18,26 +18,26 @@ class Colors:
     # Accents
     AMBER = "#dad4d4"
     AMBER_DARK = "#d97706"
-    AMBER_LIGHT = "#ddbe6e"
+    AMBER_LIGHT = "#d19a0d"
     ORANGE = "#ea580c"
     RED = "#ef4444"
-    RED_DARK = "#b91c1c"
-    EMERALD = "#10b981"
-    EMERALD_DARK = "#059669"
+    RED_DARK = "#db4040"
+    EMERALD = "#103db9"
+    EMERALD_DARK = "#2C2EA0"
     CYAN = "#06b6d4"
     YELLOW = "#eab308"
 
     # Tier colors
     TIER_LOW = "#ef4444"
-    TIER_MID = "#f59e0b"
+    TIER_MID = "#ffcf31"
     TIER_HIGH = "#10b981"
     TIER_ENTHUSIAST = "#06b6d4"
-    TIER_UNKNOWN = "#71717a"
+    TIER_UNKNOWN = "#7b7b8a"
 
     # Impact colors
-    IMPACT_LOW = "#71717a"
-    IMPACT_MEDIUM = "#b99c6a"
-    IMPACT_HIGH = "#e94d4d"
+    IMPACT_LOW = "#7a7a99"
+    IMPACT_MEDIUM = "#ac781f"
+    IMPACT_HIGH = "#326e22"
     IMPACT_CRITICAL = "#e94d4d"
 
     # Log level colors (NEW)
@@ -57,7 +57,6 @@ class Colors:
     PROC_SYSTEM = "#71717a"
     PROC_OTHER = "#a1a1aa"
 
-# Category metadata
 CATEGORY_LABELS = {
     "power": "Питание",
     "cpu": "Процессор",
@@ -133,7 +132,6 @@ IMPACT_LABELS = {
     "critical": "КРИТИЧ",
 }
 
-# Process category metadata (NEW)
 PROCESS_CATEGORY_LABELS = {
     "browser": "Браузер",
     "communication": "Коммуникации",
@@ -158,12 +156,11 @@ PROCESS_ACTION_LABELS = {
     "kill": "Завершить",
     "lower_priority": "Снизить приоритет",
     "suspend": "Приостановить",
-    "keep": "Оставить",
+    "keep": "NONE",
 }
 
-# Fonts
-FONT_FAMILY = "Segoe UI"
-FONT_MONO = "Consolas"
+FONT_FAMILY = "Arimo SemiBold"
+FONT_MONO = "Arimo SemiBold"
 
 FONTS = {
     "title": (FONT_FAMILY, 20, "bold"),
@@ -177,5 +174,5 @@ FONTS = {
     "mono_small": (FONT_MONO, 10),
     "tier_big": (FONT_FAMILY, 24, "bold"),
     "score_big": (FONT_FAMILY, 28, "bold"),
-    "log": (FONT_MONO, 10),  # NEW: log console font
+    "log": (FONT_MONO, 10),
 }
