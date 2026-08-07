@@ -7,6 +7,16 @@ import ctypes
 from datetime import datetime
 from tkinter import filedialog, messagebox
 
+from customtkinter import CTkFont
+
+font_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Arimo-SemiBold.ttf")
+if os.path.exists(font_path):
+    try:
+        ctypes.windll.gdi32.AddFontResourceW(font_path)
+        hwnd = ctypes.windll.user32.GetDesktopWindow()
+        ctypes.windll.user32.SendMessageW(hwnd, 0x001D, 0, 0) # WM_FONTCHANGE
+    except Exception:
+        pass
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src.theme import (
@@ -48,15 +58,7 @@ def progress_color_for(percent: float) -> str:
         return Colors.AMBER
     return Colors.RED
 
-# ============== Logging System ==============
-
 class LogSystem:
-    """Thread-safe log buffer that feeds the GUI log console.
-
-    Logs are pushed from any thread into a queue; the GUI drains the queue
-    on the main thread via after() and appends to the CTkTextbox.
-    """
-
     LEVELS = {"DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"}
     LEVEL_COLORS = {
         "DEBUG": Colors.LOG_DEBUG,
@@ -71,14 +73,12 @@ class LogSystem:
         self._queue: "queue.Queue" = queue.Queue()
         self._max_lines = max_lines
         self._lines: list = []
-        self._textbox = None  # set by GUI via attach()
+        self._textbox = None
 
     def attach(self, textbox):
-        """Attach a CTkTextbox for rendering."""
         self._textbox = textbox
 
     def log(self, message: str, level: str = "INFO"):
-        """Thread-safe: push a log entry. Called from any thread."""
         if level not in self.LEVELS:
             level = "INFO"
         ts = datetime.now().strftime("%H:%M:%S")
@@ -89,9 +89,7 @@ class LogSystem:
             self._lines = self._lines[-self._max_lines:]
 
     def drain(self):
-        """Main-thread: drain queue into the textbox. Called via after()."""
         if self._textbox is None:
-            # Still drain the queue to avoid memory growth
             try:
                 while True:
                     self._queue.get_nowait()
@@ -99,7 +97,7 @@ class LogSystem:
                 pass
             return
         count = 0
-        while count < 50:  # cap per-drain to avoid UI freeze
+        while count < 50:
             try:
                 ts, level, message = self._queue.get_nowait()
             except queue.Empty:
@@ -111,18 +109,15 @@ class LogSystem:
                 self._textbox.configure(state="normal")
                 self._textbox.insert("end", f"{tag} | ", level)
                 self._textbox.insert("end", f"{message}\n")
-                # Apply color via tag
                 self._textbox.tag_config(level, foreground=color)
                 self._textbox.tag_add(level, "end-2l linestart", "end-2l lineend")
                 self._textbox.configure(state="disabled")
-                # Auto-scroll
                 self._textbox.see("end")
             except Exception:
                 pass
             count += 1
 
     def clear(self):
-        """Clear the log textbox (main thread only)."""
         self._lines.clear()
         if self._textbox:
             try:
@@ -132,24 +127,19 @@ class LogSystem:
             except Exception:
                 pass
 
-
-# Global log system instance
 log_system = LogSystem()
 
 def log(message: str, level: str = "INFO"):
-    """Convenience module-level function."""
     log_system.log(message, level)
 
 # MAIN
 
 class StalZoneApp(ctk.CTk):
-
     POLL_INTERVAL_SEC = 3
     DEFAULT_GAME_NAMES = ["Stalcraft.exe", "Stalcraftw.exe", "Stalzone.exe", "Stalzonew.exe"]
-
+    
     def __init__(self):
         super().__init__()
-
         self.app_state = {
             "report": None,
             "tier": None,
@@ -160,12 +150,11 @@ class StalZoneApp(ctk.CTk):
             "applying": False,
             "game_names": list(self.DEFAULT_GAME_NAMES),
             "admin": is_admin(),
-            "backup": None,           # SettingsBackup (loaded on startup)
-            "backup_path": None,      # path to stalzone_settings_backup.json
-            "process_analysis": None,  # last ProcessAnalysis
+            "backup": None,
+            "backup_path": None,
+            "process_analysis": None,
         }
 
-        # Ссылки на виджеты
         self.w = {}
         self.toggle_switches = {}
         self.toggle_rows = {}
@@ -174,19 +163,18 @@ class StalZoneApp(ctk.CTk):
         self._hw_queue: "queue.Queue" = queue.Queue()
         self._metrics_queue: "queue.Queue" = queue.Queue()
         self._apply_queue: "queue.Queue" = queue.Queue()
-        self._proc_queue: "queue.Queue" = queue.Queue()  # process analysis results
-        self._backup_queue: "queue.Queue" = queue.Queue()  # backup capture/restore results
-        self._bg_image = None  # background CTkImage
+        self._proc_queue: "queue.Queue" = queue.Queue()
+        self._backup_queue: "queue.Queue" = queue.Queue()
+        
+        self._x = None
+        self._y = None
 
         self.setup_window()
         self.build_ui()
         self.start_background_threads()
 
-        # Start log drainer (every 150ms)
         self.after(150, self._drain_logs)
         self.after(100, self._drain_queues)
-
-    # Defaults profile 
 
     def _make_default_profile(self) -> OptimizationProfile:
         return OptimizationProfile(
@@ -212,109 +200,218 @@ class StalZoneApp(ctk.CTk):
             pass
 
         self.title("STALZONE OPTIMIZER")
-        self.geometry("1100x780")
+        self.overrideredirect(True)
+        self.configure(fg_color="#010101")
+        if sys.platform == "win32":
+            self.wm_attributes("-transparentcolor", "#010101")
+
+        self.geometry("1100x900")
         self.minsize(900, 640)
-        self.configure(fg_color=Colors.BG_DARKEST)
+        
+        self.update_idletasks()
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        x = (sw - 1100) // 2
+        y = (sh - 640) // 2
+        self.geometry(f"1100x670+{x}+{y}")
 
         try:
-            icon_path = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "icon.ico"
-            )
+            icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.ico")
             if os.path.exists(icon_path):
                 self.iconbitmap(default=icon_path)
         except Exception:
             pass
 
-
     def build_ui(self):
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=0)   
-        self.grid_rowconfigure(1, weight=1)   
-        self.grid_rowconfigure(2, weight=0)   
+        self.main_frame = ctk.CTkFrame(self, corner_radius=15, fg_color=Colors.BG_DARK)
+        self.main_frame.pack(fill="both", expand=True)
+        
+        self.main_frame.grid_columnconfigure(0, weight=1)
+        self.main_frame.grid_rowconfigure(0, weight=0)   
+        self.main_frame.grid_rowconfigure(1, weight=1)   
+        self.main_frame.grid_rowconfigure(2, weight=0)   
 
         self._build_header()
         self._build_main_content()
         self._build_footer()
 
-
     def _build_header(self):
         header = ctk.CTkFrame(
-            self, height=52, fg_color=Colors.BG_DARK,
-            corner_radius=0, border_width=0,
+            self.main_frame, height=52, fg_color=Colors.BG_DARK,
+            corner_radius=15, border_width=0,
         )
         header.grid(row=0, column=0, sticky="ew")
         header.grid_propagate(False)
         header.grid_columnconfigure(1, weight=1)
-
  
         left = ctk.CTkFrame(header, fg_color="transparent")
         left.grid(row=0, column=0, sticky="w", padx=14)
-
         ctk.CTkLabel(
             left, text="STALZONE OPTIMIZER",
             font=FONTS["heading"], text_color=Colors.TEXT_PRIMARY,
         ).grid(row=0, column=1, padx=(0, 6), pady=8)
 
-        # статус
         self.w["toast"] = ctk.CTkLabel(
             header, text="Инициализация...",
             font=FONTS["small"], text_color=Colors.TEXT_SECONDARY,
         )
         self.w["toast"].grid(row=0, column=1, sticky="ew", pady=8)
 
-        # статус игры
         self.w["game_status"] = ctk.CTkLabel(
-            header, text="○ Игра не запущена",
+            header, text="❌ Игра не запущена",
             font=FONTS["small"], text_color=Colors.TEXT_MUTED,
         )
-        self.w["game_status"].grid(row=0, column=2, sticky="e", padx=14, pady=8)
+        self.w["game_status"].grid(row=0, column=2, sticky="e", padx=(0, 14), pady=8)
+
+        ctrl_frame = ctk.CTkFrame(header, fg_color="transparent")
+        ctrl_frame.grid(row=0, column=3, sticky="e", padx=(0, 10), pady=6)
+
+        btn_min = ctk.CTkButton(
+            ctrl_frame, text="—", width=30, height=30,
+            font=FONTS["body_bold"], fg_color="transparent",
+            hover_color=Colors.BG_PANEL_LIGHT, text_color=Colors.TEXT_SECONDARY,
+            corner_radius=6, command=self._minimize_window
+        )
+        btn_min.grid(row=0, column=0, padx=(0, 4))
+
+        btn_close = ctk.CTkButton(
+            ctrl_frame, text="✕", width=30, height=30,
+            font=FONTS["body_bold"], fg_color="transparent",
+            hover_color=Colors.RED, text_color=Colors.TEXT_SECONDARY,
+            corner_radius=6, command=self._close_window
+        )
+        btn_close.grid(row=0, column=1)
+
+        for widget in [header, left, self.w["toast"], self.w["game_status"]]:
+            widget.bind("<ButtonPress-1>", self._start_move)
+            widget.bind("<ButtonRelease-1>", self._stop_move)
+            widget.bind("<B1-Motion>", self._on_move)
 
         ctk.CTkFrame(
             header, height=2, fg_color=Colors.AMBER, corner_radius=0,
-        ).grid(row=1, column=0, columnspan=3, sticky="ew")
+        ).grid(row=1, column=0, columnspan=4, sticky="ew")
+
+    def _start_move(self, event):
+        self._x = event.x
+        self._y = event.y
+
+    def _stop_move(self, event):
+        self._x = None
+        self._y = None
+
+    def _on_move(self, event):
+        deltax = event.x - self._x
+        deltay = event.y - self._y
+        x = self.winfo_x() + deltax
+        y = self.winfo_y() + deltay
+        self.geometry(f"+{x}+{y}")
+
+    def _minimize_window(self):
+        self.bind('<Map>', self._on_restore_from_minimize)
+        self.overrideredirect(False)
+        self.state('iconic')
+
+    def _on_restore_from_minimize(self, event):
+        if self.state() == 'normal':
+            self.overrideredirect(True)
+            self.unbind('<Map>')
+            if sys.platform == "win32":
+                self.wm_attributes("-transparentcolor", "#010101")
+
+    def _close_window(self):
+        self.destroy()
 
     def _set_toast(self, text: str, color: str = Colors.TEXT_SECONDARY):
-        """Update the header toast label (thread-safe via direct call from main thread)."""
         lbl = self.w.get("toast")
         if lbl:
             lbl.configure(text=text, text_color=color)
 
-    # основной контент
-
     def _build_main_content(self):
-        self.tabview = ctk.CTkTabview(
-            self, fg_color=Colors.BG_DARK,
-            segmented_button_fg_color=Colors.BG_PANEL,
-            segmented_button_selected_color=Colors.EMERALD_DARK,
-            segmented_button_selected_hover_color=Colors.AMBER_DARK,
-            segmented_button_unselected_color=Colors.BG_PANEL,
-            segmented_button_unselected_hover_color=Colors.BG_PANEL_LIGHT,
-            text_color=Colors.TEXT_PRIMARY,
-        )
-        self.tabview.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+        main_area = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        main_area.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+        main_area.grid_columnconfigure(1, weight=1)
+        main_area.grid_rowconfigure(0, weight=1)
 
-        self.tab_overview = self.tabview.add("ОБЗОР")
-        self.tab_optimizations = self.tabview.add("ОПТИМИЗАЦИЯ")
-        self.tab_processes = self.tabview.add("ПРОЦЕССЫ")
-        self.tab_settings = self.tabview.add("НАСТРОЙКИ")
-        self.tab_logs = self.tabview.add("ЛОГИ")
+        # SIDEBAR
+
+        sidebar = ctk.CTkFrame(main_area, width=180, corner_radius=10, fg_color=Colors.BG_PANEL)
+        sidebar.grid(row=0, column=0, sticky="nsw", padx=(0, 10))
+        sidebar.grid_propagate(False)
+
+        self.nav_buttons = {}
+        nav_items = [
+            ("ОБЗОР", self.show_overview, ""),
+            ("ОПТИМИЗАЦИЯ", self.show_optimizations, ""),
+            ("ПРОЦЕССЫ", self.show_processes, ""),
+            ("НАСТРОЙКИ", self.show_settings, ""),
+            ("ЛОГИ", self.show_logs, ""),
+        ]
+
+        for i, (text, cmd, icon) in enumerate(nav_items):
+            btn = ctk.CTkButton(
+                sidebar, text=f"{icon}  {text}", height=50, width=160,
+                font=FONTS["body_bold"], fg_color="transparent",
+                hover_color=Colors.BG_PANEL_LIGHT, text_color=Colors.TEXT_SECONDARY,
+                corner_radius=8, anchor="w",
+                command=cmd
+            )
+            btn.grid(row=i, column=0, pady=5, padx=10)
+            self.nav_buttons[text] = btn
+
+        # --- Область контента ---
+        self.content_frame = ctk.CTkFrame(main_area, fg_color="transparent")
+        self.content_frame.grid(row=0, column=1, sticky="nsew")
+        self.content_frame.grid_rowconfigure(0, weight=1)
+        self.content_frame.grid_columnconfigure(0, weight=1)
+
+        self.tab_overview = ctk.CTkFrame(self.content_frame, fg_color=Colors.BG_DARK, corner_radius=10)
+        self.tab_optimizations = ctk.CTkFrame(self.content_frame, fg_color=Colors.BG_DARK, corner_radius=10)
+        self.tab_processes = ctk.CTkFrame(self.content_frame, fg_color=Colors.BG_DARK, corner_radius=10)
+        self.tab_settings = ctk.CTkFrame(self.content_frame, fg_color=Colors.BG_DARK, corner_radius=10)
+        self.tab_logs = ctk.CTkFrame(self.content_frame, fg_color=Colors.BG_DARK, corner_radius=10)
 
         self._build_overview_tab(self.tab_overview)
         self._build_optimizations_tab(self.tab_optimizations)
         self._build_processes_tab(self.tab_processes)
         self._build_settings_tab(self.tab_settings)
         self._build_logs_tab(self.tab_logs)
+
+        self.show_overview()
+
+    def show_overview(self):
+        self._show_tab(self.tab_overview, "ОБЗОР")
+
+    def show_optimizations(self):
+        self._show_tab(self.tab_optimizations, "ОПТИМИЗАЦИЯ")
+
+    def show_processes(self):
+        self._show_tab(self.tab_processes, "ПРОЦЕССЫ")
+
+    def show_settings(self):
+        self._show_tab(self.tab_settings, "НАСТРОЙКИ")
+
+    def show_logs(self):
+        self._show_tab(self.tab_logs, "ЛОГИ")
+
+    def _show_tab(self, tab_frame, name):
+        for f in [self.tab_overview, self.tab_optimizations, self.tab_processes, self.tab_settings, self.tab_logs]:
+            f.grid_forget()
+        tab_frame.grid(row=0, column=0, sticky="nsew")
         
+        for n, btn in self.nav_buttons.items():
+            if n == name:
+                btn.configure(fg_color=Colors.EMERALD_DARK, text_color=Colors.TEXT_PRIMARY)
+            else:
+                btn.configure(fg_color="transparent", text_color=Colors.TEXT_SECONDARY)
 
     def _build_overview_tab(self, parent):
         parent.grid_columnconfigure(1, weight=1)
         parent.grid_rowconfigure(0, weight=1)
-
        
         left = ctk.CTkFrame(parent, fg_color=Colors.BG_PANEL, corner_radius=8)
-        left.grid(row=0, column=0, sticky="nsw", padx=(0, 8), pady=4)
+        left.grid(row=0, column=0, sticky="nsw", padx=(10, 8), pady=10)
         left.grid_propagate(False)
-        left.configure(width=350)
+        left.configure(width=280) 
 
         ctk.CTkLabel(
             left, text="Характеристики ПК", font=FONTS["subheading"],
@@ -324,20 +421,17 @@ class StalZoneApp(ctk.CTk):
         self.w["specs_grid"] = ctk.CTkFrame(left, fg_color="transparent")
         self.w["specs_grid"].grid(row=1, column=0, columnspan=2, sticky="nsew", padx=8, pady=4)
         left.grid_columnconfigure(0, weight=1)
-
         
         self.w["specs_loading"] = ctk.CTkLabel(
             left, text="⏳ Определение оборудования...",
             font=FONTS["body"], text_color=Colors.TEXT_MUTED,
         )
         self.w["specs_loading"].grid(row=2, column=0, columnspan=2, padx=12, pady=20)
-
         
         right = ctk.CTkFrame(parent, fg_color="transparent")
-        right.grid(row=0, column=1, sticky="nsew", pady=4)
+        right.grid(row=0, column=1, sticky="nsew", padx=(0, 10), pady=10)
         right.grid_columnconfigure(0, weight=1)
         right.grid_rowconfigure(3, weight=1)
-
         
         tier_card = ctk.CTkFrame(right, fg_color=Colors.BG_PANEL, corner_radius=8)
         tier_card.grid(row=0, column=0, sticky="ew", pady=(0, 8))
@@ -369,7 +463,7 @@ class StalZoneApp(ctk.CTk):
 
         self.w["tier_desc"] = ctk.CTkLabel(
             tier_card, text="", font=FONTS["small"],
-            text_color=Colors.TEXT_MUTED, wraplength=600, justify="left",
+            text_color=Colors.TEXT_MUTED, wraplength=500, justify="left",
         )
         self.w["tier_desc"].grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 8))
 
@@ -382,16 +476,12 @@ class StalZoneApp(ctk.CTk):
             text_color=Colors.AMBER,
         ).grid(row=0, column=0, sticky="w", padx=12, pady=(10, 6))
 
-        # CPU bar
         self._build_metric_bar(monitor_card, 1, "CPU", "cpu_label", "cpu_bar")
-        # RAM bar
         self._build_metric_bar(monitor_card, 2, "RAM", "ram_label", "ram_bar")
-        # Swap bar
         self._build_metric_bar(monitor_card, 3, "Swap", "swap_label", "swap_bar")
         self.w["swap_row_frame"] = self.w["swap_bar"].master
         self.w["swap_row_frame"].grid_remove()
 
-        # Per-core mini bars
         cores_frame = ctk.CTkFrame(monitor_card, fg_color="transparent")
         cores_frame.grid(row=4, column=0, sticky="ew", padx=12, pady=(4, 6))
         cores_frame.grid_columnconfigure(0, weight=1)
@@ -402,39 +492,11 @@ class StalZoneApp(ctk.CTk):
         self.w["core_bars_frame"] = ctk.CTkFrame(cores_frame, fg_color="transparent")
         self.w["core_bars_frame"].grid(row=1, column=0, sticky="ew")
 
-        # инфа о процессе игры
         self.w["game_proc_label"] = ctk.CTkLabel(
             monitor_card, text="Процесс игры: —", font=FONTS["small"],
             text_color=Colors.TEXT_SECONDARY, justify="left", anchor="w",
         )
         self.w["game_proc_label"].grid(row=5, column=0, sticky="ew", padx=12, pady=(0, 6))
-
-        # Compact log console (under monitoring) — shows last ~8 lines
-        log_header = ctk.CTkFrame(monitor_card, fg_color="transparent")
-        log_header.grid(row=6, column=0, sticky="ew", padx=12, pady=(4, 2))
-        log_header.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(
-            log_header, text="📋 Логи (последние)", font=FONTS["small"],
-            text_color=Colors.AMBER,
-        ).grid(row=0, column=0, sticky="w")
-        self.w["mini_log_clear_btn"] = ctk.CTkButton(
-            log_header, text="Очистить", width=70, height=20,
-            font=FONTS["tiny"], fg_color=Colors.BG_PANEL_LIGHT,
-            hover_color=Colors.BORDER_LIGHT, text_color=Colors.TEXT_SECONDARY,
-            command=lambda: log_system.clear(),
-        )
-        self.w["mini_log_clear_btn"].grid(row=0, column=1, sticky="e")
-
-        self.w["mini_log"] = ctk.CTkTextbox(
-            monitor_card, height=120, font=FONTS["log"],
-            fg_color=Colors.BG_INPUT, text_color=Colors.TEXT_SECONDARY,
-            border_color=Colors.BORDER, border_width=1, corner_radius=6,
-            state="disabled", wrap="word",
-        )
-        self.w["mini_log"].grid(row=7, column=0, sticky="ew", padx=12, pady=(0, 10))
-        # Attach mini log to the global log system as secondary target
-        # (the main log console is on the "ЛОГИ" tab)
-        log_system.attach(self.w["mini_log"])
 
     def _build_metric_bar(self, parent, row, label_text, label_key, bar_key):
         row_frame = ctk.CTkFrame(parent, fg_color="transparent")
@@ -447,7 +509,7 @@ class StalZoneApp(ctk.CTk):
         ).grid(row=0, column=0, sticky="w")
 
         self.w[bar_key] = ctk.CTkProgressBar(
-            row_frame, height=12, fg_color=Colors.BG_INPUT,
+            row_frame, height=12, fg_color=Colors.BG_DARK,
             progress_color=Colors.EMERALD, border_width=0,
         )
         self.w[bar_key].set(0.0)
@@ -459,15 +521,12 @@ class StalZoneApp(ctk.CTk):
         )
         self.w[label_key].grid(row=0, column=2, sticky="e")
 
-    # оптимизации
-
     def _build_optimizations_tab(self, parent):
         parent.grid_columnconfigure(0, weight=1)
         parent.grid_rowconfigure(1, weight=1)
 
-
         topbar = ctk.CTkFrame(parent, fg_color=Colors.BG_PANEL, corner_radius=8, height=44)
-        topbar.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        topbar.grid(row=0, column=0, sticky="ew", pady=(10, 8), padx=10)
         topbar.grid_columnconfigure(0, weight=1)
         topbar.grid_propagate(False)
 
@@ -481,7 +540,7 @@ class StalZoneApp(ctk.CTk):
         btns.grid(row=0, column=1, sticky="e", padx=10, pady=6)
         ctk.CTkButton(
             btns, text="Только рекомендованные", width=170, height=28,
-            font=FONTS["small"], fg_color=Colors.BG_PANEL_LIGHT,
+            font=FONTS["small"], fg_color=Colors.EMERALD,
             hover_color=Colors.BORDER_LIGHT, text_color=Colors.TEXT_PRIMARY,
             command=self.on_select_recommended,
         ).grid(row=0, column=0, padx=4)
@@ -494,17 +553,16 @@ class StalZoneApp(ctk.CTk):
         ctk.CTkButton(
             btns, text="Выключить все", width=110, height=28,
             font=FONTS["small"], fg_color=Colors.RED_DARK,
-            hover_color=Colors.RED, text_color=Colors.TEXT_PRIMARY,
+            hover_color=Colors.BG_INPUT, text_color=Colors.TEXT_PRIMARY,
             command=self.on_select_none,
         ).grid(row=0, column=2, padx=4)
-
 
         scroll = ctk.CTkScrollableFrame(
             parent, fg_color=Colors.BG_DARK, corner_radius=0,
             scrollbar_button_color=Colors.BORDER_LIGHT,
             scrollbar_button_hover_color=Colors.AMBER,
         )
-        scroll.grid(row=1, column=0, sticky="nsew")
+        scroll.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
         scroll.grid_columnconfigure(0, weight=1)
         self.w["opt_scroll"] = scroll
 
@@ -560,7 +618,6 @@ class StalZoneApp(ctk.CTk):
         )
         row.grid_columnconfigure(0, weight=1)
         self.toggle_rows[toggle.id] = row
-
         
         left = ctk.CTkFrame(row, fg_color="transparent")
         left.grid(row=0, column=0, sticky="ew", padx=8, pady=6)
@@ -572,12 +629,11 @@ class StalZoneApp(ctk.CTk):
 
         title_text = toggle.title
         if toggle.recommended:
-            title_text = f"★ {title_text}"
+            title_text = f"* {title_text}"
         ctk.CTkLabel(
             title_row, text=title_text, font=FONTS["body_bold"],
             text_color=Colors.TEXT_PRIMARY,
         ).grid(row=0, column=0, sticky="w")
-
         
         badge_col = ctk.CTkFrame(title_row, fg_color="transparent")
         badge_col.grid(row=0, column=1, sticky="e", padx=(6, 0))
@@ -587,27 +643,26 @@ class StalZoneApp(ctk.CTk):
         ctk.CTkLabel(
             badge_col, text=f" {impact_label} ", font=FONTS["tiny"],
             text_color=Colors.TEXT_PRIMARY, fg_color=impact_color,
-            corner_radius=3, padx=2, pady=0,
+            corner_radius=20, padx=2, pady=0, anchor="center", justify="center",
         ).grid(row=0, column=0, padx=2)
 
         if toggle.requires_admin:
             ctk.CTkLabel(
                 badge_col, text=" admin ", font=FONTS["tiny"],
                 text_color=Colors.TEXT_PRIMARY, fg_color=Colors.IMPACT_CRITICAL,
-                corner_radius=3, padx=2, pady=0,
+                corner_radius=20, padx=2, pady=0,anchor="center", justify="center"
             ).grid(row=0, column=1, padx=2)
 
         ctk.CTkLabel(
             left, text=toggle.description, font=FONTS["small"],
-            text_color=Colors.TEXT_MUTED, wraplength=520, justify="left",
+            text_color=Colors.TEXT_MUTED, wraplength=450, justify="left",
             anchor="w",
         ).grid(row=1, column=0, sticky="w", pady=(2, 0))
-
         
         switch = ctk.CTkSwitch(
             row, text="", width=46, height=22,
             progress_color=Colors.EMERALD, button_color=Colors.TEXT_PRIMARY,
-            button_hover_color=Colors.TEXT_SECONDARY, fg_color=Colors.BG_INPUT,
+            button_hover_color=Colors.TEXT_SECONDARY, fg_color=Colors.BG_DARK,
             command=lambda tid=toggle.id: self.on_toggle_changed(tid),
         )
         switch.grid(row=0, column=1, sticky="e", padx=12, pady=6)
@@ -623,8 +678,6 @@ class StalZoneApp(ctk.CTk):
         if lbl:
             lbl.configure(text=f"Активно: {active}/{len(toggles)}")
 
-    
-
     def _build_settings_tab(self, parent):
         parent.grid_columnconfigure(0, weight=1)
         parent.grid_rowconfigure(0, weight=1)
@@ -639,31 +692,26 @@ class StalZoneApp(ctk.CTk):
         ).grid(row=0, column=0, columnspan=2, sticky="w", padx=14, pady=(12, 8))
 
         row = 1
-
-        
         ctk.CTkLabel(
             card, text="Имена процессов игры", font=FONTS["body"],
             text_color=Colors.TEXT_SECONDARY, anchor="w",
         ).grid(row=row, column=0, sticky="nw", padx=14, pady=6)
         self.w["game_names_text"] = ctk.CTkTextbox(
             card, height=64, font=FONTS["mono_small"],
-            fg_color=Colors.BG_INPUT, text_color=Colors.TEXT_PRIMARY,
-            border_color=Colors.BORDER, border_width=1, corner_radius=6,
+            fg_color=Colors.BG_DARK, text_color=Colors.TEXT_PRIMARY,
+            
         )
-        self.w["game_names_text"].grid(
-            row=row, column=1, sticky="ew", padx=14, pady=6,
-        )
+        self.w["game_names_text"].grid(row=row, column=1, sticky="ew", padx=14, pady=6)
         self.w["game_names_text"].insert("1.0", "\n".join(self.app_state["game_names"]))
         row += 1
 
-        
         ctk.CTkLabel(
             card, text="Приоритет процесса", font=FONTS["body"],
             text_color=Colors.TEXT_SECONDARY,
         ).grid(row=row, column=0, sticky="w", padx=14, pady=6)
         self.w["priority_menu"] = ctk.CTkOptionMenu(
             card, values=["Выше обычного", "Высокий", "Реального времени"],
-            fg_color=Colors.BG_INPUT, button_color=Colors.AMBER,
+            fg_color=Colors.BG_DARK, button_color=Colors.AMBER,
             button_hover_color=Colors.AMBER_DARK, text_color=Colors.TEXT_PRIMARY,
             dropdown_fg_color=Colors.BG_PANEL_LIGHT,
             dropdown_hover_color=Colors.BORDER_LIGHT,
@@ -674,14 +722,13 @@ class StalZoneApp(ctk.CTk):
         self.w["priority_menu"].grid(row=row, column=1, sticky="w", padx=14, pady=6)
         row += 1
 
-        
         ctk.CTkLabel(
             card, text="Режим CPU Affinity", font=FONTS["body"],
             text_color=Colors.TEXT_SECONDARY,
         ).grid(row=row, column=0, sticky="w", padx=14, pady=6)
         self.w["affinity_menu"] = ctk.CTkOptionMenu(
             card, values=["Только физические ядра", "Все логические ядра"],
-            fg_color=Colors.BG_INPUT, button_color=Colors.AMBER,
+            fg_color=Colors.BG_DARK, button_color=Colors.AMBER,
             button_hover_color=Colors.AMBER_DARK, text_color=Colors.TEXT_PRIMARY,
             dropdown_fg_color=Colors.BG_PANEL_LIGHT,
             dropdown_hover_color=Colors.BORDER_LIGHT,
@@ -692,7 +739,6 @@ class StalZoneApp(ctk.CTk):
         self.w["affinity_menu"].grid(row=row, column=1, sticky="w", padx=14, pady=6)
         row += 1
 
-        
         ctk.CTkLabel(
             card, text="Разрешение таймера (мс)", font=FONTS["body"],
             text_color=Colors.TEXT_SECONDARY,
@@ -715,7 +761,6 @@ class StalZoneApp(ctk.CTk):
         self.w["timer_value"].grid(row=0, column=1, padx=(8, 0))
         row += 1
 
-        
         ctk.CTkLabel(
             card, text="Интервал очистки RAM (сек)", font=FONTS["body"],
             text_color=Colors.TEXT_SECONDARY,
@@ -738,7 +783,6 @@ class StalZoneApp(ctk.CTk):
         self.w["ram_interval_value"].grid(row=0, column=1, padx=(8, 0))
         row += 1
 
-        
         ctk.CTkLabel(
             card, text="Агрессивная очистка RAM", font=FONTS["body"],
             text_color=Colors.TEXT_SECONDARY,
@@ -747,9 +791,9 @@ class StalZoneApp(ctk.CTk):
         agg_row.grid(row=row, column=1, sticky="ew", padx=14, pady=6)
         agg_row.grid_columnconfigure(1, weight=1)
         self.w["aggressive_switch"] = ctk.CTkSwitch(
-            agg_row, text="", progress_color=Colors.AMBER,
+            agg_row, text="", progress_color=Colors.EMERALD,
             button_color=Colors.TEXT_PRIMARY, button_hover_color=Colors.TEXT_SECONDARY,
-            fg_color=Colors.BG_INPUT,
+            fg_color=Colors.BG_DARK,
             command=self.on_aggressive_changed,
         )
         self.w["aggressive_switch"].grid(row=0, column=0, sticky="w")
@@ -759,13 +803,12 @@ class StalZoneApp(ctk.CTk):
         ).grid(row=0, column=1, sticky="w", padx=10)
         row += 1
 
-        # ============== Backup / Restore section (NEW) ==============
         separator = ctk.CTkFrame(card, height=1, fg_color=Colors.BORDER)
         separator.grid(row=row, column=0, columnspan=2, sticky="ew", padx=14, pady=10)
         row += 1
 
         ctk.CTkLabel(
-            card, text="💾 Резервная копия настроек",
+            card, text="Резервная копия настроек",
             font=FONTS["subheading"], text_color=Colors.AMBER,
         ).grid(row=row, column=0, columnspan=2, sticky="w", padx=14, pady=(4, 8))
         row += 1
@@ -776,7 +819,6 @@ class StalZoneApp(ctk.CTk):
         ).grid(row=row, column=0, columnspan=2, sticky="w", padx=14, pady=(0, 8))
         row += 1
 
-        # Backup status label
         self.w["backup_status"] = ctk.CTkLabel(
             card, text="Проверка резервной копии...",
             font=FONTS["small"], text_color=Colors.TEXT_MUTED, anchor="w",
@@ -784,7 +826,6 @@ class StalZoneApp(ctk.CTk):
         self.w["backup_status"].grid(row=row, column=0, columnspan=2, sticky="w", padx=14, pady=4)
         row += 1
 
-        # Backup buttons row
         backup_btns = ctk.CTkFrame(card, fg_color="transparent")
         backup_btns.grid(row=row, column=0, columnspan=2, sticky="ew", padx=14, pady=6)
         backup_btns.grid_columnconfigure(4, weight=1)
@@ -822,16 +863,12 @@ class StalZoneApp(ctk.CTk):
         self.w["btn_restore_backup"].grid(row=0, column=3, padx=3)
         row += 1
 
-    # ============== Processes tab (NEW) ==============
-
     def _build_processes_tab(self, parent):
-        """Вкладка анализа и оптимизации запущенных процессов."""
         parent.grid_columnconfigure(0, weight=1)
         parent.grid_rowconfigure(1, weight=1)
 
-        # Top bar with stats + action buttons
         topbar = ctk.CTkFrame(parent, fg_color=Colors.BG_PANEL, corner_radius=8, height=48)
-        topbar.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        topbar.grid(row=0, column=0, sticky="ew", pady=(10, 8), padx=10)
         topbar.grid_columnconfigure(3, weight=1)
         topbar.grid_propagate(False)
 
@@ -857,24 +894,21 @@ class StalZoneApp(ctk.CTk):
         )
         self.w["btn_kill_bg"].grid(row=0, column=2, padx=4, pady=8)
 
-        # Scrollable process list
         scroll = ctk.CTkScrollableFrame(
             parent, fg_color=Colors.BG_DARK, corner_radius=0,
             scrollbar_button_color=Colors.BORDER_LIGHT,
             scrollbar_button_hover_color=Colors.AMBER,
         )
-        scroll.grid(row=1, column=0, sticky="nsew")
+        scroll.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
         scroll.grid_columnconfigure(0, weight=1)
         self.w["proc_scroll"] = scroll
 
-        # Initial placeholder
         ctk.CTkLabel(
             scroll, text="Нажмите «Обновить» для анализа процессов",
             font=FONTS["body"], text_color=Colors.TEXT_MUTED,
         ).pack(pady=40)
 
     def on_refresh_processes(self):
-        """Analyze running processes and populate the list."""
         if self.app_state.get("analyzing_procs"):
             return
         self.app_state["analyzing_procs"] = True
@@ -882,9 +916,7 @@ class StalZoneApp(ctk.CTk):
         log("Начат анализ процессов", "INFO")
         if self.w.get("btn_refresh_procs"):
             self.w["btn_refresh_procs"].configure(state="disabled", text="Анализ...")
-        threading.Thread(
-            target=self._analyze_processes_worker, daemon=True, name="proc_analyze",
-        ).start()
+        threading.Thread(target=self._analyze_processes_worker, daemon=True, name="proc_analyze").start()
 
     def _analyze_processes_worker(self):
         try:
@@ -908,7 +940,7 @@ class StalZoneApp(ctk.CTk):
         self._render_processes(analysis)
         self._set_toast(
             f"Процессов: {analysis.total_processes} | Найдено для оптимизации: {len(analysis.optimizable_processes)}",
-            Colors.EMERALD,
+            Colors.AMBER,
         )
         log(f"Анализ завершён: {analysis.total_processes} процессов, CPU {analysis.total_cpu_usage:.1f}%, RAM {analysis.total_memory_mb:.0f} МБ", "SUCCESS")
 
@@ -919,7 +951,6 @@ class StalZoneApp(ctk.CTk):
         for child in scroll.winfo_children():
             child.destroy()
 
-        # Stats update
         stats_lbl = self.w.get("proc_stats")
         if stats_lbl:
             stats_lbl.configure(
@@ -928,7 +959,6 @@ class StalZoneApp(ctk.CTk):
                      f"RAM: {analysis.total_memory_mb:.0f} МБ"
             )
 
-        # Header row
         header = ctk.CTkFrame(scroll, fg_color=Colors.BG_PANEL, corner_radius=6)
         header.grid(row=0, column=0, sticky="ew", padx=4, pady=(4, 6))
         header.grid_columnconfigure(2, weight=1)
@@ -940,7 +970,6 @@ class StalZoneApp(ctk.CTk):
         ctk.CTkLabel(header, text="Категория", font=FONTS["tiny"], text_color=Colors.TEXT_MUTED, width=90).grid(row=0, column=5, padx=4)
         ctk.CTkLabel(header, text="Действие", font=FONTS["tiny"], text_color=Colors.TEXT_MUTED, width=120).grid(row=0, column=6, padx=4)
 
-        # Process rows (top 20 heavy)
         procs = analysis.heavy_processes[:20]
         for i, p in enumerate(procs):
             row = ctk.CTkFrame(scroll, fg_color=Colors.BG_PANEL_LIGHT, corner_radius=4)
@@ -957,7 +986,6 @@ class StalZoneApp(ctk.CTk):
             cat_color = PROCESS_CATEGORY_COLORS.get(p.category, Colors.TEXT_MUTED)
             ctk.CTkLabel(row, text=PROCESS_CATEGORY_LABELS.get(p.category, p.category), font=FONTS["tiny"], text_color=cat_color, width=90).grid(row=0, column=5, padx=4)
 
-            # Action button
             action_text = PROCESS_ACTION_LABELS.get(p.recommended_action, p.recommended_action)
             if p.recommended_action == "keep":
                 ctk.CTkLabel(row, text=action_text, font=FONTS["tiny"], text_color=Colors.TEXT_MUTED, width=120).grid(row=0, column=6, padx=4)
@@ -972,15 +1000,11 @@ class StalZoneApp(ctk.CTk):
                 ).grid(row=0, column=6, padx=4)
 
     def on_optimize_single_process(self, pid: int, action: str):
-        """Optimize a single process by PID."""
         log(f"Оптимизация процесса PID={pid} действие={action}", "INFO")
         actions = [{"pid": pid, "action": action}]
-        threading.Thread(
-            target=self._optimize_processes_worker, args=(actions,), daemon=True,
-        ).start()
+        threading.Thread(target=self._optimize_processes_worker, args=(actions,), daemon=True).start()
 
     def on_kill_background(self):
-        """Kill all known background apps."""
         if self.app_state.get("applying"):
             self._set_toast("Дождитесь завершения текущей операции", Colors.AMBER)
             return
@@ -989,9 +1013,7 @@ class StalZoneApp(ctk.CTk):
         log("Закрытие фоновых приложений", "INFO")
         if self.w.get("btn_kill_bg"):
             self.w["btn_kill_bg"].configure(state="disabled", text="Закрытие...")
-        threading.Thread(
-            target=self._kill_background_worker, daemon=True,
-        ).start()
+        threading.Thread(target=self._kill_background_worker, daemon=True).start()
 
     def _kill_background_worker(self):
         def on_progress(result):
@@ -1011,16 +1033,12 @@ class StalZoneApp(ctk.CTk):
         except Exception as e:
             self._apply_queue.put(("error", str(e)))
 
-    # ============== Logs tab (NEW) ==============
-
     def _build_logs_tab(self, parent):
-        """Вкладка с полной консолью логов."""
         parent.grid_columnconfigure(0, weight=1)
         parent.grid_rowconfigure(1, weight=1)
 
-        # Top bar
         topbar = ctk.CTkFrame(parent, fg_color=Colors.BG_PANEL, corner_radius=8, height=44)
-        topbar.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        topbar.grid(row=0, column=0, sticky="ew", pady=(10, 8), padx=10)
         topbar.grid_columnconfigure(1, weight=1)
         topbar.grid_propagate(False)
 
@@ -1044,20 +1062,15 @@ class StalZoneApp(ctk.CTk):
             command=self.on_save_logs,
         ).grid(row=0, column=1, padx=4)
 
-        # Full log textbox
         self.w["full_log"] = ctk.CTkTextbox(
             parent, font=FONTS["log"],
-            fg_color=Colors.BG_INPUT, text_color=Colors.TEXT_SECONDARY,
-            border_color=Colors.BORDER, border_width=1, corner_radius=6,
-            state="disabled", wrap="word",
+            fg_color=Colors.BG_PANEL, text_color=Colors.TEXT_SECONDARY,
+            state="disabled", wrap="word", corner_radius=10
         )
-        self.w["full_log"].grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
-        # Override the log system's textbox target to the full log
-        # (mini_log on overview tab will still show same content via shared drain)
+        self.w["full_log"].grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
         log_system.attach(self.w["full_log"])
 
     def on_save_logs(self):
-        """Save logs to a text file."""
         try:
             path = filedialog.asksaveasfilename(
                 defaultextension=".txt",
@@ -1075,7 +1088,6 @@ class StalZoneApp(ctk.CTk):
             self._set_toast(f"Ошибка: {e}", Colors.RED)
 
     def _drain_logs(self):
-        """Drain the log queue into the textbox (main thread)."""
         try:
             log_system.drain()
         except Exception:
@@ -1083,10 +1095,7 @@ class StalZoneApp(ctk.CTk):
         if not self._stop_event.is_set():
             self.after(150, self._drain_logs)
 
-    # ============== Backup handlers (NEW) ==============
-
     def on_create_backup(self):
-        """Capture current system settings and save to JSON."""
         if self.app_state.get("applying"):
             self._set_toast("Дождитесь завершения текущей операции", Colors.AMBER)
             return
@@ -1095,9 +1104,7 @@ class StalZoneApp(ctk.CTk):
         log("Создание резервной копии настроек", "INFO")
         if self.w.get("btn_create_backup"):
             self.w["btn_create_backup"].configure(state="disabled", text="Создание...")
-        threading.Thread(
-            target=self._create_backup_worker, daemon=True,
-        ).start()
+        threading.Thread(target=self._create_backup_worker, daemon=True).start()
 
     def _create_backup_worker(self):
         try:
@@ -1108,13 +1115,11 @@ class StalZoneApp(ctk.CTk):
             self._backup_queue.put(("error", str(e)))
 
     def on_restore_backup(self):
-        """Restore settings from the backup file."""
         if self.app_state.get("applying"):
             self._set_toast("Дождитесь завершения текущей операции", Colors.AMBER)
             return
         backup = self.app_state.get("backup")
         if backup is None:
-            # Try loading from default path
             backup = load_backup()
             if backup is None:
                 self._set_toast("Резервная копия не найдена. Создайте сначала.", Colors.AMBER)
@@ -1125,9 +1130,7 @@ class StalZoneApp(ctk.CTk):
         log("Восстановление настроек из резервной копии", "INFO")
         if self.w.get("btn_restore_backup"):
             self.w["btn_restore_backup"].configure(state="disabled", text="Восстановление...")
-        threading.Thread(
-            target=self._restore_backup_worker, args=(backup,), daemon=True,
-        ).start()
+        threading.Thread(target=self._restore_backup_worker, args=(backup,), daemon=True).start()
 
     def _restore_backup_worker(self, backup):
         def on_progress(result):
@@ -1139,7 +1142,6 @@ class StalZoneApp(ctk.CTk):
             self._apply_queue.put(("error", str(e)))
 
     def on_import_backup(self):
-        """Import backup from a JSON file."""
         try:
             path = filedialog.askopenfilename(
                 filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
@@ -1160,7 +1162,6 @@ class StalZoneApp(ctk.CTk):
             self._set_toast(f"Ошибка: {e}", Colors.RED)
 
     def on_export_backup(self):
-        """Export current backup to a JSON file."""
         backup = self.app_state.get("backup")
         if backup is None:
             self._set_toast("Нет данных для экспорта. Создайте копию сначала.", Colors.AMBER)
@@ -1180,7 +1181,6 @@ class StalZoneApp(ctk.CTk):
             self._set_toast(f"Ошибка: {e}", Colors.RED)
 
     def _update_backup_status(self):
-        """Update the backup status label on the settings tab."""
         lbl = self.w.get("backup_status")
         if lbl is None:
             return
@@ -1188,7 +1188,7 @@ class StalZoneApp(ctk.CTk):
         if backup is None:
             lbl.configure(
                 text="⚠ Резервная копия не создана. Нажмите «Создать копию».",
-                text_color=Colors.AMBER,
+                text_color=Colors.RED,
             )
         else:
             reg_count = len(backup.registry_entries)
@@ -1197,11 +1197,10 @@ class StalZoneApp(ctk.CTk):
                 text=f"✓ Копия от {backup.created_at[:19] if backup.created_at else '—'} | "
                      f"Реестр: {reg_count} | Сервисы: {svc_count} | "
                      f"Хост: {backup.hostname or '—'}",
-                text_color=Colors.EMERALD,
+                text_color=Colors.AMBER,
             )
 
     def _on_backup_message(self, payload):
-        """Handle backup worker results."""
         kind, data = payload if isinstance(payload, tuple) else ("error", "unknown")
         if kind in ("created", "auto_created", "loaded"):
             backup, path = data
@@ -1231,8 +1230,8 @@ class StalZoneApp(ctk.CTk):
 
     def _build_footer(self):
         footer = ctk.CTkFrame(
-            self, height=56, fg_color=Colors.BG_DARK,
-            corner_radius=0, border_width=0,
+            self.main_frame, height=56, fg_color=Colors.BG_DARK,
+            corner_radius=15, border_width=0,
         )
         footer.grid(row=2, column=0, sticky="ew")
         footer.grid_propagate(False)
@@ -1245,22 +1244,21 @@ class StalZoneApp(ctk.CTk):
         self.w["admin_status"].grid(row=0, column=0, sticky="w", padx=14, pady=12)
         self._update_admin_status()
 
-
         btns = ctk.CTkFrame(footer, fg_color="transparent")
         btns.grid(row=0, column=2, sticky="e", padx=14, pady=10)
 
         self.w["btn_apply"] = ctk.CTkButton(
             btns, text="Применить оптимизации", width=180, height=34,
             font=FONTS["body_bold"], fg_color=Colors.EMERALD,
-            hover_color=Colors.EMERALD_DARK, text_color=Colors.BG_DARKEST,
+            hover_color=Colors.EMERALD_DARK, text_color=Colors.TEXT_PRIMARY,
             command=self.on_apply_clicked,
         )
         self.w["btn_apply"].grid(row=0, column=0, padx=4)
 
         self.w["btn_revert"] = ctk.CTkButton(
             btns, text="Отменить изменения", width=160, height=34,
-            font=FONTS["body"], fg_color="RED",
-            hover_color=Colors.RED_DARK, text_color=Colors.TEXT_PRIMARY,
+            font=FONTS["body"], fg_color=Colors.RED_DARK,
+            hover_color=Colors.BG_INPUT, text_color=Colors.TEXT_PRIMARY,
             command=self.on_revert_clicked,
         )
         self.w["btn_revert"].grid(row=0, column=1, padx=4)
@@ -1276,7 +1274,7 @@ class StalZoneApp(ctk.CTk):
         if self.app_state.get("admin"):
             lbl.configure(
                 text="✓ Права администратора",
-                text_color=Colors.EMERALD,
+                text_color=Colors.PROC_GAME,
             )
         else:
             lbl.configure(
@@ -1284,27 +1282,14 @@ class StalZoneApp(ctk.CTk):
                 text_color=Colors.RED,
             )
 
-    # Threading
-
     def start_background_threads(self):
-        # Hardware detection
-        threading.Thread(
-            target=self._detect_hardware_worker, daemon=True, name="hw_detect",
-        ).start()
-        # Live metrics polling
-        threading.Thread(
-            target=self._live_metrics_worker, daemon=True, name="metrics_poll",
-        ).start()
-        # First-launch backup creation (auto-creates if not exists)
-        threading.Thread(
-            target=self._auto_backup_worker, daemon=True, name="auto_backup",
-        ).start()
-        # Log startup
+        threading.Thread(target=self._detect_hardware_worker, daemon=True, name="hw_detect").start()
+        threading.Thread(target=self._live_metrics_worker, daemon=True, name="metrics_poll").start()
+        threading.Thread(target=self._auto_backup_worker, daemon=True, name="auto_backup").start()
         log("StalZone Optimizer запущен", "INFO")
         log(f"Права администратора: {'да' if self.app_state['admin'] else 'НЕТ'}", "WARNING" if not self.app_state["admin"] else "INFO")
 
     def _auto_backup_worker(self):
-        """On first launch: if no backup exists, capture + save one automatically."""
         try:
             path = create_backup_if_not_exists()
             if path:
@@ -1312,7 +1297,6 @@ class StalZoneApp(ctk.CTk):
                 if backup:
                     self._backup_queue.put(("auto_created", (backup, path)))
             else:
-                # Backup already exists — load it
                 backup = load_backup()
                 if backup:
                     self._backup_queue.put(("loaded", (backup, get_backup_path())))
@@ -1324,7 +1308,6 @@ class StalZoneApp(ctk.CTk):
             report = detect_hardware()
             tier = assess_tier(report)
             toggles = get_default_toggles(report)
-    
             profile = self.app_state["profile"]
             profile.toggles = toggles
             self._hw_queue.put(("ok", {"report": report, "tier": tier, "toggles": toggles}))
@@ -1388,7 +1371,6 @@ class StalZoneApp(ctk.CTk):
         except Exception:
             pass
 
-        # Process analysis queue (isolated)
         try:
             while True:
                 try:
@@ -1402,7 +1384,6 @@ class StalZoneApp(ctk.CTk):
         except Exception:
             pass
 
-        # Backup queue (isolated)
         try:
             while True:
                 try:
@@ -1433,7 +1414,6 @@ class StalZoneApp(ctk.CTk):
         self._populate_specs(payload["report"])
         self._populate_tier(payload["tier"])
         self._render_optimizations()
-        
 
     def _on_hardware_error(self, err: str):
         loading = self.w.get("specs_loading")
@@ -1448,48 +1428,31 @@ class StalZoneApp(ctk.CTk):
         grid = self.w.get("specs_grid")
         if grid is None:
             return
-        # Clear
         for child in grid.winfo_children():
             child.destroy()
         grid.grid_columnconfigure(1, weight=1)
 
         rows = []
-        # CPU
         cpu = report.cpu
-        rows.append(("🔲", "CPU",
-                     f"{cpu.brand}"))
-        rows.append(("", "Ядра (физ/лог)",
-                     f"{cpu.cores_physical} / {cpu.cores_logical}"))
-        rows.append(("", "Частота",
-                     f"{cpu.speed_ghz:.2f} ГГц"))
-        # RAM
+        rows.append(("🔲", "CPU", f"{cpu.brand}"))
+        rows.append(("", "Ядра (физ/лог)", f"{cpu.cores_physical} / {cpu.cores_logical}"))
+        rows.append(("", "Частота", f"{cpu.speed_ghz:.2f} ГГц"))
         ram = report.ram
-        rows.append(("💾", "RAM",
-                     f"{ram.total_gb:.1f} ГБ"))
-        rows.append(("", "Свободно",
-                     f"{ram.free_gb:.1f} ГБ"))
-        # GPU
+        rows.append(("💾", "RAM", f"{ram.total_gb:.1f} ГБ"))
+        rows.append(("", "Свободно", f"{ram.free_gb:.1f} ГБ"))
         if report.gpus:
             g = report.gpus[0]
             vram = f"{g.vram_mb} МБ" if g.vram_mb else "—"
             rows.append(("🎮", "GPU", g.model))
             rows.append(("", "VRAM", vram))
-        # Disks
         disk_count = len(report.disks)
         disk_types = ", ".join(sorted({d.type for d in report.disks})) or "—"
-        rows.append(("💿", "Диски",
-                     f"{disk_count} шт. ({disk_types})"))
-        # OS
+        rows.append(("💿", "Диски", f"{disk_count} шт. ({disk_types})"))
         os_info = report.os
-        rows.append(("🖥", "ОС",
-                     f"{os_info.distro} {os_info.release}"))
-        rows.append(("", "Архитектура",
-                     os_info.arch))
-        # Display
+        rows.append(("🖥", "ОС", f"{os_info.distro} {os_info.release}"))
+        rows.append(("", "Архитектура", os_info.arch))
         if report.display_resolution:
-            rows.append(("🖥", "Дисплей",
-                         f"{report.display_resolution} @ "
-                         f"{int(report.display_refresh_rate or 0)} Гц"))
+            rows.append(("🖥", "Дисплей", f"{report.display_resolution} @ {int(report.display_refresh_rate or 0)} Гц"))
 
         for i, (icon, label, value) in enumerate(rows):
             ctk.CTkLabel(
@@ -1525,10 +1488,8 @@ class StalZoneApp(ctk.CTk):
                 text_color=info.get("color", Colors.TEXT_SECONDARY),
             )
         
-        self._populate_list(self.w.get("strengths_list"), tier.strengths,
-                            prefix="✓ ", color=Colors.EMERALD)
-        self._populate_list(self.w.get("bottlenecks_list"), tier.bottlenecks,
-                            prefix="⚠ ", color=Colors.RED)
+        self._populate_list(self.w.get("strengths_list"), tier.strengths, prefix="✓ ", color=Colors.EMERALD)
+        self._populate_list(self.w.get("bottlenecks_list"), tier.bottlenecks, prefix="⚠ ", color=Colors.RED)
 
     def _populate_list(self, container, items, prefix="", color=None):
         if container is None:
@@ -1548,8 +1509,6 @@ class StalZoneApp(ctk.CTk):
                 wraplength=270, justify="left", anchor="w",
             ).pack(anchor="w", padx=8, pady=2)
 
-    # метрики
-
     def _on_metrics_ready(self, m: LiveMetrics):
         self.app_state["metrics"] = m
 
@@ -1562,7 +1521,7 @@ class StalZoneApp(ctk.CTk):
                 )
             else:
                 gs.configure(
-                    text="○ Игра не запущена",
+                    text="❌ Игра не запущена",
                     text_color=Colors.TEXT_MUTED,
                 )
 
@@ -1584,7 +1543,6 @@ class StalZoneApp(ctk.CTk):
                     text_color=Colors.TEXT_MUTED,
                 )
 
-        # CPU bar
         cpu_pct = max(0.0, min(100.0, float(m.cpu_load or 0.0)))
         if self.w.get("cpu_bar"):
             self.w["cpu_bar"].configure(progress_color=progress_color_for(cpu_pct))
@@ -1592,21 +1550,16 @@ class StalZoneApp(ctk.CTk):
         if self.w.get("cpu_label"):
             self.w["cpu_label"].configure(text=f"{cpu_pct:.0f}%")
 
-        # RAM bar
         ram_pct = max(0.0, min(100.0, float(m.ram_used_percent or 0.0)))
         if self.w.get("ram_bar"):
             self.w["ram_bar"].configure(progress_color=progress_color_for(ram_pct))
             self.w["ram_bar"].set(ram_pct / 100.0)
         if self.w.get("ram_label"):
-            self.w["ram_label"].configure(
-                text=f"{ram_pct:.0f}%  ({m.ram_used_gb:.1f}/{m.ram_total_gb:.1f} ГБ)"
-            )
+            self.w["ram_label"].configure(text=f"{ram_pct:.0f}%  ({m.ram_used_gb:.1f}/{m.ram_total_gb:.1f} ГБ)")
 
         swap_row = self.w.get("swap_row_frame")
         report = self.app_state.get("report")
-        swap_configured = (
-            bool(report and report.ram and report.ram.swap_total_gb > 0)
-        )
+        swap_configured = (bool(report and report.ram and report.ram.swap_total_gb > 0))
         swap_pct = max(0.0, min(100.0, float(m.swap_used_percent or 0.0)))
         show_swap = swap_configured or swap_pct > 0
         if swap_row is not None:
@@ -1645,14 +1598,12 @@ class StalZoneApp(ctk.CTk):
         for i in range(count):
             bar = ctk.CTkProgressBar(
                 container, width=24, height=10, orientation="vertical",
-                fg_color=Colors.BG_INPUT, progress_color=Colors.EMERALD,
+                fg_color=Colors.BG_DARK, progress_color=Colors.EMERALD,
                 border_width=0,
             )
             bar.pack(side="left", padx=1, pady=2)
             bar.set(0.0)
             self.core_bars.append(bar)
-
-    # Toggle handlers 
 
     def on_toggle_changed(self, toggle_id: str):
         sw = self.toggle_switches.get(toggle_id)
@@ -1666,7 +1617,6 @@ class StalZoneApp(ctk.CTk):
         
         self.app_state["profile"].toggles = self.app_state["toggles"]
         self._update_active_count()
-        
         self._refresh_category_headers()
 
     def _refresh_category_headers(self):
@@ -1683,7 +1633,6 @@ class StalZoneApp(ctk.CTk):
         for t in self.app_state.get("toggles", []):
             by_cat.setdefault(t.category, []).append(t)
         for cat_frame in scroll.winfo_children():
-            
             children = cat_frame.winfo_children()
             if not children:
                 continue
@@ -1731,16 +1680,13 @@ class StalZoneApp(ctk.CTk):
                     break
         self._update_active_count()
         self._refresh_category_headers()
-        self._set_toast("Включены только рекомендованные", Colors.EMERALD)
-
-    # Settings handlers 
+        self._set_toast("Включены только рекомендованные", Colors.AMBER)
 
     def _sync_game_names_from_textbox(self):
         tb = self.w.get("game_names_text")
         if tb is None:
             return
         raw = tb.get("1.0", "end").strip()
-        
         parts = [p.strip() for p in raw.replace(",", "\n").splitlines() if p.strip()]
         self.app_state["game_names"] = parts or list(self.DEFAULT_GAME_NAMES)
         self.app_state["profile"].game_process_names = self.app_state["game_names"]
@@ -1777,7 +1723,6 @@ class StalZoneApp(ctk.CTk):
             return
         self.app_state["profile"].aggressive_ram_cleanup = bool(sw.get())
 
-
     def on_apply_clicked(self):
         if self.app_state.get("applying"):
             return
@@ -1796,15 +1741,11 @@ class StalZoneApp(ctk.CTk):
             self.w["btn_apply"].configure(state="disabled", text="Применение...")
         if self.w.get("btn_revert"):
             self.w["btn_revert"].configure(state="disabled")
-        threading.Thread(
-            target=self._apply_worker, daemon=True, name="apply",
-        ).start()
+        threading.Thread(target=self._apply_worker, daemon=True, name="apply").start()
 
     def _apply_worker(self):
-
         def on_progress(result):
             self._apply_queue.put(("progress", result))
-
         try:
             results = apply_optimizations(
                 self.app_state["toggles"],
@@ -1833,14 +1774,11 @@ class StalZoneApp(ctk.CTk):
             self.w["btn_apply"].configure(state="disabled")
         if self.w.get("btn_revert"):
             self.w["btn_revert"].configure(state="disabled", text="Отмена...")
-        threading.Thread(
-            target=self._revert_worker, daemon=True, name="revert",
-        ).start()
+        threading.Thread(target=self._revert_worker, daemon=True, name="revert").start()
 
     def _revert_worker(self):
         def on_progress(result):
             self._apply_queue.put(("progress", result))
-
         try:
             results = revert_optimizations(
                 self.app_state["toggles"],
@@ -1863,7 +1801,6 @@ class StalZoneApp(ctk.CTk):
                 f"{label} оптимизаций ({done}/{total})...",
                 Colors.AMBER,
             )
-            # Log each result
             if data and hasattr(data, "toggle_id"):
                 status = "✓" if data.success else "✗"
                 level = "SUCCESS" if data.success else "WARNING"
@@ -1871,7 +1808,6 @@ class StalZoneApp(ctk.CTk):
             return
 
         self.app_state["applying"] = False
-        # Re-enable all action buttons
         if self.w.get("btn_apply"):
             self.w["btn_apply"].configure(state="normal", text="Применить оптимизации")
         if self.w.get("btn_revert"):
@@ -1898,7 +1834,6 @@ class StalZoneApp(ctk.CTk):
             msg_text += f", {fail} с ошибкой"
         self._set_toast(msg_text, Colors.EMERALD if not fail else Colors.AMBER)
 
-
     def destroy(self):
         self._stop_event.set()
         try:
@@ -1908,8 +1843,8 @@ class StalZoneApp(ctk.CTk):
 
 def main():
     app = StalZoneApp()
-    # app.overrideredirect(True)
+    app.resizable(False, False) 
     app.mainloop()
-    
+
 if __name__ == "__main__":
     main()
