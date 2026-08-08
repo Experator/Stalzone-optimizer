@@ -1,0 +1,296 @@
+{
+    "mode": "roxy",
+    "pools": [
+        {
+            "name": "CLOUD-RU-7",
+            "tunnels": [
+                {
+                    "name": "SRVMGR-ACCESSOR-OFT-RU-7A",
+                    "address": "176.114.88.147:29450"
+                }
+            ]
+        },
+        {
+            "name": "MSK1",
+            "tunnels": [
+                {
+                    "name": "MSK1-1",
+                    "address": "85.119.149.7:29450"
+                },
+                {
+                    "name": "MSK1-2",
+                    "address": "85.119.149.8:29450"
+                },
+                {
+                    "name": "MSK1-3",
+                    "address": "85.119.149.9:29450"
+                },
+                {
+                    "name": "MSK1-4",
+                    "address": "85.119.149.10:29450"
+                },
+                {
+                    "name": "MSK1-5",
+                    "address": "85.119.149.25:29450"
+                }
+            ]
+        },
+        {
+            "name": "MSK2",
+            "tunnels": [
+                {
+                    "name": "MSK2-1",
+                    "address": "95.213.255.12:29450"
+                },
+                {
+                    "name": "MSK2-2",
+                    "address": "85.119.149.41:29450"
+                },
+                {
+                    "name": "MSK2-3",
+                    "address": "85.119.149.46:29450"
+                },
+                {
+                    "name": "MSK2-4",
+                    "address": "85.119.149.60:29450"
+                },
+                {
+                    "name": "MSK2-5",
+                    "address": "85.119.149.119:29450"
+                },
+                {
+                    "name": "MSK2-6",
+                    "address": "85.119.149.90:29450"
+                },
+                {
+                    "name": "MSK2-7",
+                    "address": "85.119.149.134:29450"
+                },
+                {
+                    "name": "MSK2-8",
+                    "address": "85.119.149.152:29450"
+                },
+                {
+                    "name": "MSK2-9",
+                    "address": "85.119.149.184:29450"
+                },
+                {
+                    "name": "MSK2-10",
+                    "address": "85.119.149.201:29450"
+                },
+                {
+                    "name": "MSK2-11",
+                    "address": "85.119.149.123:29450"
+                },
+                {
+                    "name": "MSK2-12",
+                    "address": "85.119.149.212:29450"
+                },
+                {
+                    "name": "MSK2-13",
+                    "address": "85.119.149.214:29450"
+                },
+                {
+                    "name": "MSK2-14",
+                    "address": "85.119.149.216:29450"
+                },
+                {
+                    "name": "MSK2-15",
+                    "address": "85.119.149.217:29450"
+                },
+                {
+                    "name": "MSK2-16",
+                    "address": "95.213.255.22:29450"
+                }
+            ]
+        },
+        {
+            "name": "MSK2X",
+            "tunnels": [
+                {
+                    "name": "MSK2-ROXY1",
+                    "address": "111.88.96.18:29450"
+                },
+                {
+                    "name": "MSK2-ROXY2",
+                    "address": "111.88.96.19:29450"
+                },
+                {
+                    "name": "MSK2-ROXY3",
+                    "address": "111.88.96.20:29450"
+                }
+            ]
+        },
+        {
+            "name": "SPB3",
+            "tunnels": [
+                {
+                    "name": "SPB3-ROXY16",
+                    "address": "94.26.255.68:29450"
+                },
+                {
+                    "name": "SPB3-ROXY17",
+                    "address": "94.26.255.69:29450"
+                },
+                {
+                    "name": "SPB3-ROXY18",
+                    "address": "94.26.255.70:29450"
+                },
+                {
+                    "name": "SPB3-ROXY19",
+                    "address": "94.26.255.71:29450"
+                },
+                {
+                    "name": "SPB3-ROXY20",
+                    "address": "94.26.255.72:29450"
+                }
+            ]
+        },
+        {
+            "name": "NSK1",
+            "tunnels": [
+                {
+                    "name": "NSK1-ROXY1",
+                    "address": "92.255.62.130:29450"
+                }
+            ]
+        },
+        {
+            "name": "TAS",
+            "tunnels": [
+                {
+                    "name": "TAS1-ROXY1",
+                    "address": "82.148.1.195:29450"
+                }
+            ]
+        },
+        {
+            "name": "SE",
+            "tunnels": [
+                {
+                    "name": "DP-SE-PROXY1",
+                    "address": "79.127.249.87:29450"
+                },
+                {
+                    "name": "DP-SE-PROXY2",
+                    "address": "79.127.249.102:29450"
+                }
+            ]
+        },
+        {
+            "name": "EKB",
+            "tunnels": [
+                {
+                    "name": "EKB-ROXY7",
+                    "address": "5.188.35.24:29450"
+                },
+                {
+                    "name": "EKB-ROXY8",
+                    "address": "5.188.35.82:29450"
+                },
+                {
+                    "name": "EKB-ROXY9",
+                    "address": "5.188.35.50:29450"
+                },
+                {
+                    "name": "EKB-ROXY10",
+                    "address": "5.188.35.76:29450"
+                },
+                {
+                    "name": "EKB-ROXY13",
+                    "address": "5.188.35.49:29450"
+                },
+                {
+                    "name": "EKB-ROXY14",
+                    "address": "5.188.35.74:29450"
+                },
+                {
+                    "name": "EKB-ROXY15",
+                    "address": "5.188.35.103:29450"
+                },
+                {
+                    "name": "EKB-ROXY16",
+                    "address": "5.188.35.158:29450"
+                }
+            ]
+        },
+        {
+            "name": "SMR",
+            "tunnels": [
+                {
+                    "name": "SMR-ROXY18",
+                    "address": "146.185.196.116:29450"
+                },
+                {
+                    "name": "SMR-ROXY19",
+                    "address": "146.185.196.120:29450"
+                },
+                {
+                    "name": "SMR-ROXY20",
+                    "address": "146.185.196.72:29450"
+                }
+            ]
+        },
+        {
+            "name": "RST",
+            "tunnels": [
+                {
+                    "name": "RST-ROXY1",
+                    "address": "146.185.197.17:29450"
+                },
+                {
+                    "name": "RST-ROXY2",
+                    "address": "146.185.197.138:29450"
+                },
+                {
+                    "name": "RST-ROXY3",
+                    "address": "146.185.197.139:29450"
+                }
+            ]
+        },
+        {
+            "name": "KRY",
+            "tunnels": [
+                {
+                    "name": "KRY-ROXY5",
+                    "address": "5.189.201.141:29450"
+                },
+                {
+                    "name": "KRY-ROXY6",
+                    "address": "5.189.201.213:29450"
+                }
+            ]
+        },
+        {
+            "name": "KHB",
+            "tunnels": [
+                {
+                    "name": "KHB-ROXY2",
+                    "address": "5.188.37.209:29450"
+                },
+                {
+                    "name": "KHB-ROXY3",
+                    "address": "5.188.37.210:29450"
+                },
+                {
+                    "name": "KHB-ROXY4",
+                    "address": "5.188.39.164:29450"
+                }
+            ]
+        },
+        {
+            "name": "AST",
+            "tunnels": [
+                {
+                    "name": "AST-ROXY1",
+                    "address": "188.94.156.24:29450"
+                },
+                {
+                    "name": "AST-ROXY2",
+                    "address": "188.94.156.211:29450"
+                }
+            ]
+        }
+    ],
+    "clientToTunnelRttWeight": 1.0
+}
