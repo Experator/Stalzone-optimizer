@@ -28,9 +28,8 @@ echo.
 
 REM Build with PyInstaller
 echo [3/4] Building executable (this may take 2-5 minutes)...
-pyinstaller --noconfirm --windowed --icon=icon.ico ^
+pyinstaller --noconfirm --windowed ^
     --name "stalzone optimizer" ^
-    --add-data "icon.ico;." ^
     --collect-all customtkinter ^
     --hidden-import psutil ^
     --hidden-import PIL ^
