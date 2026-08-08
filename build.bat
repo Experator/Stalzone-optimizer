@@ -28,7 +28,7 @@ echo.
 
 REM Build with PyInstaller
 echo [3/4] Building executable (this may take 2-5 minutes)...
-pyinstaller --noconfirm --windowed ^
+pyinstaller --noconfirm --windowed --onefile ^
     --name "stalzone optimizer" ^
     --collect-all customtkinter ^
     --hidden-import psutil ^
