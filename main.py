@@ -7,9 +7,23 @@ import ctypes
 from datetime import datetime
 from tkinter import filedialog, messagebox
 
+from ctypes import windll, byref, sizeof, c_int
 from customtkinter import CTkFont
 
-font_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Arimo-SemiBold.ttf")
+if sys.platform == "win32":
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('stalzone.optimizer')
+    except Exception:
+        pass
+
+def resource_path(relative_path: str) -> str:
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+font_path = resource_path("Arimo-SemiBold.ttf")
 if os.path.exists(font_path):
     try:
         ctypes.windll.gdi32.AddFontResourceW(font_path)
@@ -41,6 +55,7 @@ from src.process_optimizer import (
     analyze_processes, optimize_processes, kill_background_apps,
     get_process_category, get_process_description,
 )
+from src.servers import ServerBlockerTab
 
 def is_admin() -> bool:
     try:
@@ -166,8 +181,7 @@ class StalZoneApp(ctk.CTk):
         self._proc_queue: "queue.Queue" = queue.Queue()
         self._backup_queue: "queue.Queue" = queue.Queue()
         
-        self._x = None
-        self._y = None
+        self.logo_image = None
 
         self.setup_window()
         self.build_ui()
@@ -199,9 +213,10 @@ class StalZoneApp(ctk.CTk):
         except Exception:
             pass
 
-        self.title("STALZONE OPTIMIZER")
-        self.overrideredirect(True)
-        self.configure(fg_color="#010101")
+        self.title("")
+        self.overrideredirect(False)
+        ctk.set_appearance_mode('dark')
+        self.configure(fg_color=("#FF5733", "#C70039")) 
         if sys.platform == "win32":
             self.wm_attributes("-transparentcolor", "#010101")
 
@@ -216,9 +231,15 @@ class StalZoneApp(ctk.CTk):
         self.geometry(f"1100x670+{x}+{y}")
 
         try:
-            icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.ico")
+            icon_path = resource_path("icon.ico")
             if os.path.exists(icon_path):
                 self.iconbitmap(default=icon_path)
+            else:
+                png_path = resource_path("icon.png")
+                if os.path.exists(png_path):
+                    from tkinter import PhotoImage
+                    icon_img = PhotoImage(file=png_path)
+                    self.iconphoto(True, icon_img)
         except Exception:
             pass
 
@@ -236,90 +257,54 @@ class StalZoneApp(ctk.CTk):
         self._build_footer()
 
     def _build_header(self):
+        from PIL import Image
         header = ctk.CTkFrame(
             self.main_frame, height=52, fg_color=Colors.BG_DARK,
             corner_radius=15, border_width=0,
         )
         header.grid(row=0, column=0, sticky="ew")
         header.grid_propagate(False)
-        header.grid_columnconfigure(1, weight=1)
- 
-        left = ctk.CTkFrame(header, fg_color="transparent")
-        left.grid(row=0, column=0, sticky="w", padx=14)
-        ctk.CTkLabel(
-            left, text="STALZONE OPTIMIZER",
-            font=FONTS["heading"], text_color=Colors.TEXT_PRIMARY,
-        ).grid(row=0, column=1, padx=(0, 6), pady=8)
-
-        self.w["toast"] = ctk.CTkLabel(
-            header, text="Инициализация...",
-            font=FONTS["small"], text_color=Colors.TEXT_SECONDARY,
-        )
-        self.w["toast"].grid(row=0, column=1, sticky="ew", pady=8)
+        
+        header.grid_columnconfigure(0, weight=1)
+        header.grid_columnconfigure(1, weight=0)
+        header.grid_columnconfigure(2, weight=0)
+        header.grid_columnconfigure(3, weight=0)
+        header.grid_columnconfigure(4, weight=1)
 
         self.w["game_status"] = ctk.CTkLabel(
             header, text="❌ Игра не запущена",
             font=FONTS["small"], text_color=Colors.TEXT_MUTED,
         )
-        self.w["game_status"].grid(row=0, column=2, sticky="e", padx=(0, 14), pady=8)
+        self.w["game_status"].grid(row=0, column=3, sticky="e", padx=(120, 0), pady=8)
 
-        ctrl_frame = ctk.CTkFrame(header, fg_color="transparent")
-        ctrl_frame.grid(row=0, column=3, sticky="e", padx=(0, 10), pady=6)
+        try:
 
-        btn_min = ctk.CTkButton(
-            ctrl_frame, text="—", width=30, height=30,
-            font=FONTS["body_bold"], fg_color="transparent",
-            hover_color=Colors.BG_PANEL_LIGHT, text_color=Colors.TEXT_SECONDARY,
-            corner_radius=6, command=self._minimize_window
+            self.logo_image = ctk.CTkImage(
+                light_image=Image.open(resource_path("1_4.png")),
+                size=(120, 30)  
+            )
+            logo_label = ctk.CTkLabel(
+                header,
+                image=self.logo_image,
+                text=""
+            )
+            logo_label.grid(row=0, column=2, pady=8)
+        except Exception as e:
+            print(f"Ошибка загрузки логотипа: {e}")
+            ctk.CTkLabel(
+                header, text="STALZONE OPTIMIZER",
+                font=FONTS["heading"], text_color=Colors.TEXT_PRIMARY,
+            ).grid(row=0, column=2, pady=8)
+
+        self.w["toast"] = ctk.CTkLabel(
+            header, text="Инициализация...",
+            font=FONTS["small"], text_color=Colors.TEXT_SECONDARY,
         )
-        btn_min.grid(row=0, column=0, padx=(0, 4))
-
-        btn_close = ctk.CTkButton(
-            ctrl_frame, text="✕", width=30, height=30,
-            font=FONTS["body_bold"], fg_color="transparent",
-            hover_color=Colors.RED, text_color=Colors.TEXT_SECONDARY,
-            corner_radius=6, command=self._close_window
-        )
-        btn_close.grid(row=0, column=1)
-
-        for widget in [header, left, self.w["toast"], self.w["game_status"]]:
-            widget.bind("<ButtonPress-1>", self._start_move)
-            widget.bind("<ButtonRelease-1>", self._stop_move)
-            widget.bind("<B1-Motion>", self._on_move)
+        self.w["toast"].grid(row=0, column=1, sticky="w", padx=(0, 120), pady=8)
 
         ctk.CTkFrame(
             header, height=2, fg_color=Colors.AMBER, corner_radius=0,
-        ).grid(row=1, column=0, columnspan=4, sticky="ew")
-
-    def _start_move(self, event):
-        self._x = event.x
-        self._y = event.y
-
-    def _stop_move(self, event):
-        self._x = None
-        self._y = None
-
-    def _on_move(self, event):
-        deltax = event.x - self._x
-        deltay = event.y - self._y
-        x = self.winfo_x() + deltax
-        y = self.winfo_y() + deltay
-        self.geometry(f"+{x}+{y}")
-
-    def _minimize_window(self):
-        self.bind('<Map>', self._on_restore_from_minimize)
-        self.overrideredirect(False)
-        self.state('iconic')
-
-    def _on_restore_from_minimize(self, event):
-        if self.state() == 'normal':
-            self.overrideredirect(True)
-            self.unbind('<Map>')
-            if sys.platform == "win32":
-                self.wm_attributes("-transparentcolor", "#010101")
-
-    def _close_window(self):
-        self.destroy()
+        ).grid(row=1, column=0, columnspan=5, sticky="ew")
 
     def _set_toast(self, text: str, color: str = Colors.TEXT_SECONDARY):
         lbl = self.w.get("toast")
@@ -332,8 +317,6 @@ class StalZoneApp(ctk.CTk):
         main_area.grid_columnconfigure(1, weight=1)
         main_area.grid_rowconfigure(0, weight=1)
 
-        # SIDEBAR
-
         sidebar = ctk.CTkFrame(main_area, width=180, corner_radius=10, fg_color=Colors.BG_PANEL)
         sidebar.grid(row=0, column=0, sticky="nsw", padx=(0, 10))
         sidebar.grid_propagate(False)
@@ -342,6 +325,7 @@ class StalZoneApp(ctk.CTk):
         nav_items = [
             ("ОБЗОР", self.show_overview, ""),
             ("ОПТИМИЗАЦИЯ", self.show_optimizations, ""),
+            ("SERVER BLOCKER", self.show_servers, ""),
             ("ПРОЦЕССЫ", self.show_processes, ""),
             ("НАСТРОЙКИ", self.show_settings, ""),
             ("ЛОГИ", self.show_logs, ""),
@@ -358,7 +342,6 @@ class StalZoneApp(ctk.CTk):
             btn.grid(row=i, column=0, pady=5, padx=10)
             self.nav_buttons[text] = btn
 
-        # --- Область контента ---
         self.content_frame = ctk.CTkFrame(main_area, fg_color="transparent")
         self.content_frame.grid(row=0, column=1, sticky="nsew")
         self.content_frame.grid_rowconfigure(0, weight=1)
@@ -366,6 +349,7 @@ class StalZoneApp(ctk.CTk):
 
         self.tab_overview = ctk.CTkFrame(self.content_frame, fg_color=Colors.BG_DARK, corner_radius=10)
         self.tab_optimizations = ctk.CTkFrame(self.content_frame, fg_color=Colors.BG_DARK, corner_radius=10)
+        self.tab_servers = ServerBlockerTab(self.content_frame, log_func=log, toast_func=self._set_toast)
         self.tab_processes = ctk.CTkFrame(self.content_frame, fg_color=Colors.BG_DARK, corner_radius=10)
         self.tab_settings = ctk.CTkFrame(self.content_frame, fg_color=Colors.BG_DARK, corner_radius=10)
         self.tab_logs = ctk.CTkFrame(self.content_frame, fg_color=Colors.BG_DARK, corner_radius=10)
@@ -384,6 +368,9 @@ class StalZoneApp(ctk.CTk):
     def show_optimizations(self):
         self._show_tab(self.tab_optimizations, "ОПТИМИЗАЦИЯ")
 
+    def show_servers(self):
+        self._show_tab(self.tab_servers, "БЛОКИРОВКА")
+
     def show_processes(self):
         self._show_tab(self.tab_processes, "ПРОЦЕССЫ")
 
@@ -394,7 +381,7 @@ class StalZoneApp(ctk.CTk):
         self._show_tab(self.tab_logs, "ЛОГИ")
 
     def _show_tab(self, tab_frame, name):
-        for f in [self.tab_overview, self.tab_optimizations, self.tab_processes, self.tab_settings, self.tab_logs]:
+        for f in [self.tab_overview, self.tab_optimizations, self.tab_servers, self.tab_processes, self.tab_settings, self.tab_logs]:
             f.grid_forget()
         tab_frame.grid(row=0, column=0, sticky="nsew")
         
@@ -1157,7 +1144,7 @@ class StalZoneApp(ctk.CTk):
             self.app_state["backup_path"] = path
             self._update_backup_status()
             self._set_toast(f"Импортировано: {os.path.basename(path)}", Colors.EMERALD)
-            log(f"Импортирована резервная копия из {path}", "SUCCESS")
+            log(f"Импортирована резервная копию из {path}", "SUCCESS")
         except Exception as e:
             self._set_toast(f"Ошибка: {e}", Colors.RED)
 
@@ -1837,13 +1824,32 @@ class StalZoneApp(ctk.CTk):
     def destroy(self):
         self._stop_event.set()
         try:
+            self.tab_servers.stop()
+        except Exception:
+            pass
+        try:
             super().destroy()
         except Exception:
             pass
 
+
+    def resource_path(relative_path):
+        try:
+            base_path = sys._MEIPASS
+        except AttributeError:
+            base_path = os.path.dirname(os.path.abspath(__file__))
+        return os.path.join(base_path, relative_path) 
+           
+
 def main():
     app = StalZoneApp()
     app.resizable(False, False) 
+    app.update()
+    icon_path = resource_path("icon.ico")
+    logo_path = resource_path("icon.png")
+    icon_path = resource_path("1_4.png")
+    import pywinstyles
+    pywinstyles.change_header_color(app, "#1a1d4e")
     app.mainloop()
 
 if __name__ == "__main__":
