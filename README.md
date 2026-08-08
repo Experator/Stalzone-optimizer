@@ -8,6 +8,8 @@
 
 - **Детальный анализ ПК** — CPU, GPU, RAM, диски, ОС, дисплей
 - **Оценка тира производительности** — Low / Mid / High / Enthusiast (score 0-100)
+- Server Blocker
+  - Возможность заблокировать ваш не любимый MSK2-1 и т.д
 - **37 оптимизаций** в 10 категориях:
   - Питание (power plan, timer resolution, core parking)
   - Процессор (affinity, priority, Game DVR)
@@ -32,7 +34,7 @@
 
 ## Запуск из релиза
 - Перейти в вкладку релизов https://github.com/Experator/Stalzone-optimizer/releases
-- Скачать актуальную версию программы - stalzone.optimizer.zip
+- Скачать актуальную версию программы - stalzone optimizer.exe
 <img width="917" height="437" alt="image" src="https://github.com/user-attachments/assets/fa9d95f3-95c9-47f8-991c-49e8a81e4c84" />
 
 ## Запуск из исходников
@@ -74,6 +76,11 @@ chmod +x build.sh
 - 37 переключателей в 10 категориях
 - Кнопки: «Только рекомендованные», «Включить все», «Выключить все»
 - Каждый тоггл показывает: impact, требуется ли admin, рекомендован ли
+
+### Вкладка Server Blocker
+- Блокировка и разблокировка серверов/туннелей
+- ВАЖНО! Не нужно блокировать все сервера, а только на которых «Анреги» иначе будут вылеты в игре:
+<img width="736" height="96" alt="image" src="https://github.com/user-attachments/assets/ef91dbce-30c2-4c74-b141-d7f312d72f83" />
 
 ### Вкладка «Настройки»
 - Имена процессов игры
