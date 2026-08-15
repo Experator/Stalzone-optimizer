@@ -56,6 +56,7 @@ from src.process_optimizer import (
     get_process_category, get_process_description,
 )
 from src.servers import ServerBlockerTab
+from src.crosshair import CrosshairTab
 
 def is_admin() -> bool:
     try:
@@ -146,8 +147,6 @@ log_system = LogSystem()
 
 def log(message: str, level: str = "INFO"):
     log_system.log(message, level)
-
-# MAIN
 
 class StalZoneApp(ctk.CTk):
     POLL_INTERVAL_SEC = 3
@@ -326,6 +325,7 @@ class StalZoneApp(ctk.CTk):
             ("ОБЗОР", self.show_overview, ""),
             ("ОПТИМИЗАЦИЯ", self.show_optimizations, ""),
             ("SERVER BLOCKER", self.show_servers, ""),
+            ("CROSSHAIR", self.show_crosshair, ""),
             ("ПРОЦЕССЫ", self.show_processes, ""),
             ("НАСТРОЙКИ", self.show_settings, ""),
             ("ЛОГИ", self.show_logs, ""),
@@ -350,6 +350,7 @@ class StalZoneApp(ctk.CTk):
         self.tab_overview = ctk.CTkFrame(self.content_frame, fg_color=Colors.BG_DARK, corner_radius=10)
         self.tab_optimizations = ctk.CTkFrame(self.content_frame, fg_color=Colors.BG_DARK, corner_radius=10)
         self.tab_servers = ServerBlockerTab(self.content_frame, log_func=log, toast_func=self._set_toast)
+        self.tab_crosshair = CrosshairTab(self.content_frame, log_func=log, toast_func=self._set_toast)
         self.tab_processes = ctk.CTkFrame(self.content_frame, fg_color=Colors.BG_DARK, corner_radius=10)
         self.tab_settings = ctk.CTkFrame(self.content_frame, fg_color=Colors.BG_DARK, corner_radius=10)
         self.tab_logs = ctk.CTkFrame(self.content_frame, fg_color=Colors.BG_DARK, corner_radius=10)
@@ -371,6 +372,9 @@ class StalZoneApp(ctk.CTk):
     def show_servers(self):
         self._show_tab(self.tab_servers, "БЛОКИРОВКА")
 
+    def show_crosshair(self):
+        self._show_tab(self.tab_crosshair, "CROSSHAIR")
+
     def show_processes(self):
         self._show_tab(self.tab_processes, "ПРОЦЕССЫ")
 
@@ -381,7 +385,7 @@ class StalZoneApp(ctk.CTk):
         self._show_tab(self.tab_logs, "ЛОГИ")
 
     def _show_tab(self, tab_frame, name):
-        for f in [self.tab_overview, self.tab_optimizations, self.tab_servers, self.tab_processes, self.tab_settings, self.tab_logs]:
+        for f in [self.tab_overview, self.tab_optimizations, self.tab_servers, self.tab_crosshair, self.tab_processes, self.tab_settings, self.tab_logs]:
             f.grid_forget()
         tab_frame.grid(row=0, column=0, sticky="nsew")
         
@@ -1144,7 +1148,7 @@ class StalZoneApp(ctk.CTk):
             self.app_state["backup_path"] = path
             self._update_backup_status()
             self._set_toast(f"Импортировано: {os.path.basename(path)}", Colors.EMERALD)
-            log(f"Импортирована резервная копию из {path}", "SUCCESS")
+            log(f"Импортирована резервную копию из {path}", "SUCCESS")
         except Exception as e:
             self._set_toast(f"Ошибка: {e}", Colors.RED)
 
@@ -1825,6 +1829,10 @@ class StalZoneApp(ctk.CTk):
         self._stop_event.set()
         try:
             self.tab_servers.stop()
+        except Exception:
+            pass
+        try:
+            self.tab_crosshair.stop_overlay()
         except Exception:
             pass
         try:
