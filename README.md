@@ -47,23 +47,13 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## Компиляция в .exe (Windows)
+## сборка в .exe (Windows)
 
 ```cmd
-# Двойной клик по build.bat ИЛИ:
-build.bat
+# Открыть build.bat
 ```
 
 После сборки: `dist\stalzone optimizer.exe` — автономный исполняемый файл, работает на любом Windows ПК без установленного Python.
-
-## Компиляция в Linux/macOS
-
-```bash
-chmod +x build.sh
-./build.sh
-```
-
-Результат: `dist/stalzone optimizer`
 
 ## Использование
 
@@ -84,6 +74,12 @@ chmod +x build.sh
 Можно 1 раз заблокировать туннели и забыть, метод блокировки происходит через Firewall Windows.
 - ВАЖНО! Не нужно блокировать все сервера, а только на которых «Анреги» иначе будут вылеты в игре:
 <img width="736" height="96" alt="image" src="https://github.com/user-attachments/assets/ef91dbce-30c2-4c74-b141-d7f312d72f83" />
+
+### Вкладка Crosshair
+- Альтернатива платной программы HudSight для STALZONE
+- Настройка прицела под себя (Длина, отступ, толщина, радиус, обводка и т.д.) 
+- 10 вариантов прицелов
+- Возможность привязать прицел к другой игре: Вписать в поле "Окно игры" название процесса/окна. Например "cs2.exe"
 
 ### Вкладка «Настройки»
 - Имена процессов игры
